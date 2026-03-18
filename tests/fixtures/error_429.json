@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": 429,
+    "message": "Rate limit exceeded, retry in 5 seconds"
+  }
+}
+

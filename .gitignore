@@ -1,0 +1,11 @@
+# Config avec clé API
+config.yml
+
+# Historiques (données perso)
+history_*
+
+# Cache
+*.lock
+
+# Backup v2
+*.bak

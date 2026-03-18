@@ -1,0 +1,12 @@
+{
+  "candidates": [
+    {
+      "content": {
+        "parts": [
+          { "text": "```bash\nls -l" }
+        ]
+      }
+    }
+  ]
+}
+
