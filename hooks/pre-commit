@@ -1,0 +1,81 @@
+#!/bin/bash
+# pre-commit hook — Bloque les commits contenant des clés API
+# Patterns détectés : Google AI (AIzaSy), AWS, GitHub tokens, Notion, generic secrets
+
+set -euo pipefail
+
+# Patterns de clés API connues (regex)
+PATTERNS=(
+  'AIzaSy[0-9A-Za-z_-]{33}'                    # Google API Key
+  'AKIA[0-9A-Z]{16}'                            # AWS Access Key
+  'ghp_[0-9a-zA-Z]{36}'                         # GitHub Personal Access Token
+  'gho_[0-9a-zA-Z]{36}'                         # GitHub OAuth Token
+  'github_pat_[0-9a-zA-Z_]{82}'                 # GitHub Fine-grained PAT
+  'sk-[0-9a-zA-Z]{48}'                          # OpenAI API Key
+  'sk-ant-[0-9a-zA-Z-]{95}'                     # Anthropic API Key
+  'ntn_[0-9a-zA-Z]{50,}'                        # Notion API Key
+  'xoxb-[0-9]{10,}-[0-9a-zA-Z]{24}'             # Slack Bot Token
+  'SG\.[0-9A-Za-z_-]{22}\.[0-9A-Za-z_-]{43}'    # SendGrid API Key
+)
+
+# Fichiers exclus (patterns légitimes dans config examples, hooks, docs de sécurité)
+EXCLUDE_FILES=(
+  'pre-commit'
+  '*.sample'
+)
+
+found=0
+
+# Récupère le diff staged (contenu ajouté uniquement)
+staged_diff=$(git diff --cached --diff-filter=ACMR -U0 -- . 2>/dev/null)
+
+if [[ -z "$staged_diff" ]]; then
+  exit 0
+fi
+
+for pattern in "${PATTERNS[@]}"; do
+  # Cherche dans les lignes ajoutées (+) du diff staged
+  matches=$(echo "$staged_diff" | grep -nP "^\+.*${pattern}" 2>/dev/null || true)
+
+  if [[ -n "$matches" ]]; then
+    # Filtrer les fichiers exclus
+    while IFS= read -r match_line; do
+      excluded=false
+      for excl in "${EXCLUDE_FILES[@]}"; do
+        if echo "$match_line" | grep -q "$excl"; then
+          excluded=true
+          break
+        fi
+      done
+
+      if [[ "$excluded" == false ]]; then
+        if [[ "$found" -eq 0 ]]; then
+          echo ""
+          echo "============================================================"
+          echo " COMMIT BLOQUE — Cle API detectee !"
+          echo "============================================================"
+        fi
+        found=$((found + 1))
+        echo ""
+        echo "  Pattern: $pattern"
+        echo "  Ligne:   $match_line"
+      fi
+    done <<< "$matches"
+  fi
+done
+
+if [[ "$found" -gt 0 ]]; then
+  echo ""
+  echo "------------------------------------------------------------"
+  echo " $found secret(s) detecte(s) dans les fichiers stages."
+  echo ""
+  echo " Actions possibles :"
+  echo "   1. Remplacer par une variable d'environnement (\${VAR})"
+  echo "   2. Ajouter le fichier au .gitignore"
+  echo "   3. Forcer le commit : git commit --no-verify"
+  echo "============================================================"
+  echo ""
+  exit 1
+fi
+
+exit 0
